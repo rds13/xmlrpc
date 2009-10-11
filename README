@@ -4,14 +4,9 @@ servers. The library is compliant with the XML-RPC specification
 published by http://www.xmlrpc.org/.
 
 Prior to using this library you need a recent installation of
-Erlang. Get it at http://www.erlang.org/. You furthermore need to
-install the xmerl package, version 0.18 or better. Get it at
-http://sourceforge.net/projects/sowap/.
+Erlang (Erlang/OTP R12).
 
-In order compile the library you need to update the XMERL_PATH
-variable in src/Makefile to point at your xmerl installation.
-
-After this go to the src/ directory and run make to compile.
+In order compile the library go to the src/ directory and run make to compile.
 
 You are now ready to try the client and server examples in the
 examples/ directory.
@@ -20,6 +15,5 @@ Do not forget to read doc/xmlrpc.3 (or xmlrpc.txt, xmlrpc.ps,
 xmlrpc.pdf) for a detailed API description.
 
 Get the latest version of this library at
-http://www.gleipnir.com/xmlrpc/.
+http://github.com/rds13/xmlrpc/ .
 
-Send questions and/or suggestions to jocke@gleipnir.com.
