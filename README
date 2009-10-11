@@ -17,3 +17,7 @@ xmlrpc.pdf) for a detailed API description.
 Get the latest version of this library at
 http://github.com/rds13/xmlrpc/ .
 
+This library is a hack over 
+http://ejabberd.jabber.ru/files/contributions/xmlrpc-1.13-ipr2.tgz 
+to add support for custom HTTP headers and https support.
+Custom HTTP headers allow to send cookies between client and server.
