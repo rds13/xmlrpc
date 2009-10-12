@@ -27,9 +27,6 @@ foo(Pid) -> foo ! Pid.
 %% Exported: bar/3
 
 bar(Pid, Timeout, Message) ->
-    Pid !!  
-
-
     {bar, Message, self()} ! Pid,
     receive
 	{Pid, Result} -> Result
@@ -52,7 +49,7 @@ loop(State) ->
 	    stop;
 	
 	{bar, Message, From} ->
-	    {self(), Message},
+	    {self(), Message} ! From,
 	    loop(State);
 	UnknownMessage ->
 	    io:format("Unknown message: ~p~n", [UnknownMessage]),
