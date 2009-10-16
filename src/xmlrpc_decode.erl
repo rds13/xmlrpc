@@ -31,7 +31,7 @@
 -include_lib("xmerl/include/xmerl.hrl").
 
 payload(Payload) ->
-    case catch xmerl_scan:string(Payload) of
+    case catch xmerl_scan:string(Payload, [{encoding, latin1}]) of
         {'EXIT', Reason} -> {error, Reason};
 	{E, _}  ->
 	    case catch decode_element(E) of
