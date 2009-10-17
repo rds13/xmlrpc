@@ -30,18 +30,9 @@
 
 -include("log.hrl").
 
--record(header, {
-	  %% int()
-	  content_length,
-	  %% string()
-	  content_type,
-	  %% string()
-	  user_agent,
-	  %% close | undefined
-	  connection
-	 }).
+-include("xmlrpc.hrl").
 
-%% Exported: handler/3
+%% Exported: handler/4
 
 handler(Socket, Timeout, Handler, State) ->
     case parse_request(Socket, Timeout) of
@@ -109,6 +100,13 @@ parse_header(Socket, Timeout, Header) ->
 		{"Connection:", [_,$e,$e,$p,$-,_,$l,$i,$v,$e]} ->
 		    parse_header(Socket, Timeout,
 				 Header#header{connection = undefined});
+		{"Authorization:", Authorization} ->
+		    parse_header(Socket, Timeout,
+				 Header#header{authorization = Authorization});
+		{"Cookie:", Cookie} ->
+			Cookies = [ Cookie | Header#header.cookies ],
+		    parse_header(Socket, Timeout,
+				 Header#header{cookies = Cookies});
 		_ ->
 		    ?DEBUG_LOG({skipped_header, HeaderField}),
 		    parse_header(Socket, Timeout, Header)
@@ -131,7 +129,7 @@ handle_payload(Socket, Timeout, Handler, State,
 		{ok, DecodedPayload} ->
 		    ?DEBUG_LOG({decoded_call, DecodedPayload}),
 		    eval_payload(Socket, Timeout, Handler, State, Connection,
-				 DecodedPayload);
+				 DecodedPayload, Header);
 		{error, Reason} when Connection == close ->
 		    ?ERROR_LOG({xmlrpc_decode, payload, Payload, Reason}),
 		    send(Socket, 400);
@@ -147,8 +145,26 @@ get_payload(Socket, Timeout, ContentLength) ->
     inet:setopts(Socket, [{packet, raw}]),
     gen_tcp:recv(Socket, ContentLength, Timeout).
 
-eval_payload(Socket, Timeout, {M, F} = Handler, State, Connection, Payload) ->
-    case catch M:F(State, Payload) of
+%% Check whether module has defined new function
+%% M:F(State, Payload, Header)
+has_newcall(M, F) ->
+	case beam_util:module_export_list(M) of
+		false -> false;
+		Exports ->
+			beam_util:filter_arity(F, 3, Exports)
+	end.
+
+%% Handle module call
+do_call({M, F} = _Handler, State, Payload, Header) ->
+	case has_newcall(M, F) of
+		true ->
+			M:F(State, Payload, Header);
+		false ->
+			M:F(State, Payload)
+	end.
+
+eval_payload(Socket, Timeout, {M, F} = Handler, State, Connection, Payload, Header) ->
+    case catch do_call(Handler, State, Payload, Header) of
 	{'EXIT', Reason} when Connection == close ->
 	    ?ERROR_LOG({M, F, {'EXIT', Reason}}),
 	    send(Socket, 500, "Connection: close\r\n");
@@ -166,12 +182,18 @@ eval_payload(Socket, Timeout, {M, F} = Handler, State, Connection, Payload) ->
 	{false, ResponsePayload} ->
 	    encode_send(Socket, 200, "Connection: close\r\n", ResponsePayload);
 	{false, ResponsePayload, ExtraHeaders} ->
-          encode_send(Socket, 200, [ExtraHeaders, "Connection: close\r\n"], ResponsePayload);
+        encode_send(Socket, 200, [ExtraHeaders, "Connection: close\r\n"], ResponsePayload);
 	{true, _NewTimeout, _NewState, ResponsePayload} when
 	      Connection == close ->
 	    encode_send(Socket, 200, "Connection: close\r\n", ResponsePayload);
 	{true, NewTimeout, NewState, ResponsePayload} ->
 	    encode_send(Socket, 200, "", ResponsePayload),
+	    handler(Socket, NewTimeout, Handler, NewState);
+	{true, _NewTimeout, _NewState, ResponsePayload, ExtraHeaders} when
+	      Connection == close ->
+	    encode_send(Socket, 200, [ExtraHeaders, "Connection: close\r\n"], ResponsePayload);
+	{true, NewTimeout, NewState, ResponsePayload, ExtraHeaders} ->
+	    encode_send(Socket, 200, ExtraHeaders, ResponsePayload),
 	    handler(Socket, NewTimeout, Handler, NewState)
     end.
 
