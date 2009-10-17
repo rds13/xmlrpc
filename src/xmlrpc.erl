@@ -28,38 +28,45 @@
 
 -module(xmlrpc).
 -author('jocke@gleipnir.com').
--export([call/4, call/5, call/6, call/7, call/8, new_call/7]).
+-export([call/3, call/4, call/5, call/6, call/7, call/8, call2/7]).
 -export([start_link/1, start_link/5, start_link/6, stop/1]).
 
 -include("log.hrl").
 
--record(header, {
-	  %% int()
-	  content_length,
-	  %% close | undefined
-	  connection
-	 }).
+-include("xmlrpc.hrl").
 
 %% Exported: call/{3,4,5,6,7}
 
-call(Host, Port, URI, Payload, SslOption) when is_number(Port) -> 
-	call(Host, Port, URI, Payload, false, 60000, "", SslOption).
+call(Socket, URI, Payload) ->
+	call2(Socket, URI, Payload, false, 60000, "", [{ssl, false}, {header, false}]).
 
-call(Socket, URI, Payload, SslOption) -> 
-	new_call(Socket, URI, Payload, false, 60000, "", SslOption).
+call(Host, Port, URI, Payload, Options) when is_number(Port) -> 
+	call(Host, Port, URI, Payload, false, 60000, "", Options);
 
-call(Socket, URI, Payload, KeepAlive, Timeout, SslOption) ->
-	new_call(Socket, URI, Payload, KeepAlive, Timeout, "", SslOption).
+call(Socket, URI, Payload, KeepAlive, Timeout) ->
+	call2(Socket, URI, Payload, KeepAlive, Timeout, "", [{ssl, false}, {header, false}]).
 
-call(Host, Port, URI, Payload, KeepAlive, Timeout, SslOption) when is_number(Port) ->
-    call(Host, Port, URI, Payload, KeepAlive, Timeout, "", SslOption);
+call(Host, Port, URI, Payload) when is_number(Port) -> 
+	call(Host, Port, URI, Payload, false, 60000, "", [{ssl, false}, {header, false}]);
+	
+call(Socket, URI, Payload, Options) -> 
+	call2(Socket, URI, Payload, false, 60000, "", Options).
 
-call(Socket, URI, Payload, KeepAlive, Timeout, ExtraHeader, SslOption) ->
-  new_call(Socket, URI, Payload, KeepAlive, Timeout, ExtraHeader, SslOption).
+call(Host, Port, URI, Payload, KeepAlive, Timeout) when is_number(Port) ->
+	call(Host, Port, URI, Payload, KeepAlive, Timeout, "", [{ssl, false}, {header, false}]);
 
-call(Host, Port, URI, Payload, KeepAlive, Timeout, ExtraHeaders, SslOption) when is_number(Port)  ->
-    case open_socket(Host, Port, SslOption) of
-	{ok, Socket} -> new_call(Socket, URI, Payload, KeepAlive, Timeout, ExtraHeaders, SslOption);
+call(Socket, URI, Payload, KeepAlive, Timeout, Options) ->
+	call2(Socket, URI, Payload, KeepAlive, Timeout, "", Options).
+
+call(Host, Port, URI, Payload, KeepAlive, Timeout, Options) when is_number(Port) ->
+    call(Host, Port, URI, Payload, KeepAlive, Timeout, "", Options);
+
+call(Socket, URI, Payload, KeepAlive, Timeout, ExtraHeader, Options) ->
+  call2(Socket, URI, Payload, KeepAlive, Timeout, ExtraHeader, Options).
+
+call(Host, Port, URI, Payload, KeepAlive, Timeout, ExtraHeaders, Options) when is_number(Port)  ->
+    case open_socket(Host, Port, Options) of
+	{ok, Socket} -> call2(Socket, URI, Payload, KeepAlive, Timeout, ExtraHeaders, Options);
 	{error, Reason} when KeepAlive == false -> {error, Reason};
 	{error, Reason} -> {error, undefined, Reason}
     end.
@@ -72,41 +79,42 @@ open_socket(Host, Port, SslOption) ->
 			application:start(ssl), 
 			%% Always seed 
 			ssl:seed("wheredoyouthinkitcanbefound"),
-%%			 {ok, SslSocket} = ssl:connect(Host, Port, [{ssl_imp, new}, {active, false}, {verify, verify_none}]),
-			 ssl:connect(Host, Port, [{verify, 0}, {active, false}]);
+			%% new ssl implementation does not seem to work as of R13B01
+			%%{ok, SslSocket} = ssl:connect(Host, Port, [{ssl_imp, new}, {active, false}, {verify, verify_none}]),
+			ssl:connect(Host, Port, [{verify, 0}, {active, false}]);
 		_ -> 
 			gen_tcp:connect(Host, Port, [{active, false}])
 	end.
 
 
-new_call(Socket, URI, Payload, KeepAlive, Timeout, ExtraHeader, SslOption) ->
+call2(Socket, URI, Payload, KeepAlive, Timeout, ExtraHeader, Options) ->
 	?DEBUG_LOG({decoded_call, Payload}),
-    case xmlrpc_encode:payload(Payload) of
-	{ok, EncodedPayload} ->
-	    ?DEBUG_LOG({encoded_call, EncodedPayload}),
-	    case send(Socket, URI, KeepAlive, EncodedPayload, ExtraHeader, SslOption) of
-		ok ->
-		    case parse_response(Socket, Timeout, SslOption) of
-			{ok, Header} ->
-			    handle_payload(Socket, KeepAlive, Timeout, SslOption, Header);
-			{error, Reason} when KeepAlive == false ->
-				comm_close(SslOption, Socket),
-			    {error, Reason};
-			{error, Reason} -> {error, Socket, Reason}
-		    end;
+	case xmlrpc_encode:payload(Payload) of
+		{ok, EncodedPayload} ->
+			?DEBUG_LOG({encoded_call, EncodedPayload}),
+			case send(Socket, URI, KeepAlive, EncodedPayload, ExtraHeader, Options) of
+				ok ->
+					case parse_response(Socket, Timeout, Options) of
+						{ok, Header} ->
+							handle_payload(Socket, KeepAlive, Timeout, Options, Header);
+						{error, Reason} when KeepAlive == false ->
+							comm_close(Options, Socket),
+							{error, Reason};
+						{error, Reason} -> {error, Socket, Reason}
+					end;
+				{error, Reason} when KeepAlive == false ->
+					comm_close(Options, Socket),
+					{error, Reason};
+				{error, Reason} -> {error, Socket, Reason}
+			end;
 		{error, Reason} when KeepAlive == false ->
-				comm_close(SslOption, Socket),
-		    {error, Reason};
+			comm_close(Options, Socket),
+			{error, Reason};
 		{error, Reason} -> {error, Socket, Reason}
-	    end;
-	{error, Reason} when KeepAlive == false ->
-				comm_close(SslOption, Socket),
-	    {error, Reason};
-	{error, Reason} -> {error, Socket, Reason}
-    end.
+	end.
 
 send(Socket, URI, false, Payload, ExtraHeader, SslOption) ->
-	send(Socket, URI, lists:flatten([ExtraHeader, "Connection: close\r\n"]), Payload, SslOption);
+	send(Socket, URI, lists:flatten(["Connection: close\r\n" | ExtraHeader]), Payload, SslOption);
 send(Socket, URI, true, Payload, ExtraHeader, SslOption) -> 
 	send(Socket, URI, ExtraHeader, Payload, SslOption).
 
@@ -132,20 +140,26 @@ parse_response(Socket, Timeout, SslOption) ->
 		{error, Reason} -> {error, Reason}
 	end.
 
-fetch_comm_module(SslOption) ->
-	case lists:keyfind(ssl, 1, SslOption) of
+fetch_comm_module(Options) ->
+	case lists:keyfind(ssl, 1, Options) of
 		{ssl, true} -> ssl;
-		{ssl, false} -> gen_tcp
+		_ -> gen_tcp
 	end.
 
-fetch_sets_module(SslOption) ->
-	case lists:keyfind(ssl, 1, SslOption) of
-		{ssl, true} -> ssl;
-		{ssl, false} -> inet
+has_header_option(Options) ->
+	case lists:keyfind(header, 1, Options) of
+		{_, true} -> true;
+		_ -> false
 	end.
 
-comm_close(SslOption, Socket) ->
-	M = fetch_comm_module(SslOption),
+fetch_sets_module(Options) ->
+	case lists:keyfind(ssl, 1, Options) of
+		{ssl, true} -> ssl;
+		_ -> inet
+	end.
+
+comm_close(Options, Socket) ->
+	M = fetch_comm_module(Options),
 	apply(M, close, [ Socket ]).
 	
 parse_header(Socket, Timeout, SslOption) -> parse_header(Socket, Timeout, SslOption, #header{}).
@@ -170,35 +184,57 @@ parse_header(Socket, Timeout, SslOption, Header) ->
 		["Connection:", "close"] ->
 		    parse_header(Socket, Timeout, SslOption,
 				 Header#header{connection = close});
+		["Authorization:", Authorization] ->
+		    parse_header(Socket, Timeout, SslOption,
+				 Header#header{authorization = Authorization});
+		["Cookie:", Cookie] ->
+			Cookies = [ Cookie | Header#header.cookies ],
+		    parse_header(Socket, Timeout, SslOption,
+				 Header#header{cookies = Cookies});
 		_ ->
 		    parse_header(Socket, Timeout, SslOption, Header)
 	    end;
 	{error, Reason} -> {error, Reason}
     end.
 
-handle_payload(Socket, KeepAlive, Timeout, SslOption, Header) ->
-    case get_payload(Socket, Timeout, SslOption, Header#header.content_length) of
+handle_payload(Socket, KeepAlive, Timeout, Options, Header) ->
+    case get_payload(Socket, Timeout, Options, Header#header.content_length) of
 	{ok, Payload} ->
 	    ?DEBUG_LOG({encoded_response, Payload}),
 	    case xmlrpc_decode:payload(Payload) of
-		{ok, DecodedPayload} when KeepAlive == false ->
+		{ok, {response, DecodedPayload}} when KeepAlive == false ->
 		    ?DEBUG_LOG({decoded_response, DecodedPayload}),
-		    comm_close(SslOption, Socket),
-		    {ok, DecodedPayload};
-		{ok, DecodedPayload} when KeepAlive == true,
+		    comm_close(Options, Socket),
+			case has_header_option(Options) of
+				true ->
+		    		{ok, {response, DecodedPayload, Header}};
+				_ ->
+		    		{ok, {response, DecodedPayload}}
+			end;
+		{ok, {response, DecodedPayload}} when KeepAlive == true,
 					  Header#header.connection == close ->
 		    ?DEBUG_LOG({decoded_response, DecodedPayload}),
-		    comm_close(SslOption, Socket),
-		    {ok, Socket, DecodedPayload};
-		{ok, DecodedPayload} ->
+		    comm_close(Options, Socket),
+			case has_header_option(Options) of
+				true ->
+				    {ok, Socket, {response, DecodedPayload, Header}};
+				_ ->
+				    {ok, Socket, {response, DecodedPayload}}
+			end;
+		{ok, {response, DecodedPayload}} ->
 		    ?DEBUG_LOG({decoded_response, DecodedPayload}),
-		    {ok, Socket, DecodedPayload};
+			case has_header_option(Options) of
+				true ->
+				    {ok, Socket, {response, DecodedPayload, Header}};
+				_ ->
+				    {ok, Socket, {response, DecodedPayload}}
+			end;
 		{error, Reason} when KeepAlive == false ->
-		    comm_close(SslOption, Socket),
+		    comm_close(Options, Socket),
 		    {error, Reason};
 		{error, Reason} when KeepAlive == true,
 				     Header#header.connection == close ->
-		    comm_close(SslOption, Socket),
+		    comm_close(Options, Socket),
 		    {error, Socket, Reason};
 		{error, Reason} ->
 		    {error, Socket, Reason}
@@ -208,7 +244,7 @@ handle_payload(Socket, KeepAlive, Timeout, SslOption, Header) ->
 	    {error, Reason};
 	{error, Reason} when KeepAlive == true,
 			     Header#header.connection == close ->
-	    comm_close(SslOption, Socket),
+	    comm_close(Options, Socket),
 	    {error, Socket, Reason};
 	{error, Reason} -> {error, Socket, Reason}
     end.
