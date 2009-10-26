@@ -72,9 +72,9 @@ call(Host, Port, URI, Payload, KeepAlive, Timeout, ExtraHeaders, Options) when i
     end.
 
 
-open_socket(Host, Port, SslOption) ->
-	case SslOption of
-		{ssl, true} ->
+open_socket(Host, Port, Options) ->
+	case fetch_comm_module(Options) of
+		ssl ->
 			%% Start ssl application 
 			application:start(ssl), 
 			%% Always seed 
