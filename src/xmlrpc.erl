@@ -35,7 +35,7 @@
 
 -include("xmlrpc.hrl").
 
-%% Exported: call/{3,4,5,6,7}
+%% Exported: call/{3,4,5,6,7,8}
 
 call(Socket, URI, Payload) ->
 	call2(Socket, URI, Payload, false, 60000, "", [{ssl, false}, {header, false}]).
@@ -141,20 +141,20 @@ parse_response(Socket, Timeout, SslOption) ->
 	end.
 
 fetch_comm_module(Options) ->
-	case lists:keyfind(ssl, 1, Options) of
-		{ssl, true} -> ssl;
+	case lists:keysearch(ssl, 1, Options) of
+		{value, {ssl, true}} -> ssl;
 		_ -> gen_tcp
 	end.
 
 has_header_option(Options) ->
-	case lists:keyfind(header, 1, Options) of
-		{_, true} -> true;
+	case lists:keysearch(header, 1, Options) of
+		{value, {_, true}} -> true;
 		_ -> false
 	end.
 
 fetch_sets_module(Options) ->
-	case lists:keyfind(ssl, 1, Options) of
-		{ssl, true} -> ssl;
+	case lists:keysearch(ssl, 1, Options) of
+		{value, {ssl, true}} -> ssl;
 		_ -> inet
 	end.
 
