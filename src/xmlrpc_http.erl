@@ -148,11 +148,7 @@ get_payload(Socket, Timeout, ContentLength) ->
 %% Check whether module has defined new function
 %% M:F(State, Payload, Header)
 has_newcall(M, F) ->
-	case beam_util:module_export_list(M) of
-		false -> false;
-		Exports ->
-			beam_util:filter_arity(F, 3, Exports)
-	end.
+    erlang:function_exported(M, F, 3).
 
 %% Handle module call
 do_call({M, F} = _Handler, State, Payload, Header) ->
