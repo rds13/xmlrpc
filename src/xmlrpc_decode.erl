@@ -201,7 +201,6 @@ make_integer(Integer) ->
 
 make_double(Double) ->
     case catch list_to_float(Double) of
-        {'EXIT', _} -> throw({error, {not_double, Double}});
 	{'EXIT', _} ->
             case catch list_to_integer(Double) of
 	       {'EXIT', _} ->
