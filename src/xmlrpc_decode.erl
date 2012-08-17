@@ -64,6 +64,13 @@ decode_element(#xmlElement{name = methodResponse} = MethodResponse)
 			yes -> {ok, {response, {fault, Code, String}}};
 			no -> {error, {bad_string, String}}
 		    end;
+		{struct, [{faultString, String},
+			  {faultCode, Code}]} when integer(Code) ->
+                    %% This case has been found in java xmlrpc 
+		    case xmlrpc_util:is_string(String) of
+			yes -> {ok, {response, {fault, Code, String}}};
+			no -> {error, {bad_string, String}}
+		    end;
 		_ ->
 		    {error, {bad_element, MethodResponse}}
 	    end;
@@ -188,13 +195,13 @@ decode_values(Content) ->
 
 make_integer(Integer) ->
     case catch list_to_integer(Integer) of
-	{'EXIT', Reason} -> throw({error, {not_integer, Integer}});
+	{'EXIT', _Reason} -> throw({error, {not_integer, Integer}});
 	Value -> Value
     end.
 
 make_double(Double) ->
     case catch list_to_float(Double) of
-	{'EXIT', _} -> throw({error, {not_double, Double}});
+        {'EXIT', _} -> throw({error, {not_double, Double}});
 	{'EXIT', _} ->
             case catch list_to_integer(Double) of
 	       {'EXIT', _} ->
