@@ -103,6 +103,9 @@ parse_header(Socket, Timeout, Header) ->
 		{"Authorization:", Authorization} ->
 		    parse_header(Socket, Timeout,
 				 Header#header{authorization = Authorization});
+		{"X-Forwarded-For:", XForwardedFor} ->
+		    parse_header(Socket, Timeout,
+				 Header#header{xforwardedfor = XForwardedFor});
 		{"Cookie:", Cookie} ->
 			Cookies = [ Cookie | Header#header.cookies ],
 		    parse_header(Socket, Timeout,

@@ -35,6 +35,8 @@
 	  connection,
 	  %% string()
 	  authorization,
+	  %% string()
+	  xforwardedfor,
 	  %% list()
 	  cookies
 	 }).
