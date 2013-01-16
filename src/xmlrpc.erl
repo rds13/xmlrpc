@@ -184,6 +184,9 @@ parse_header(Socket, Timeout, SslOption, Header) ->
 		["Connection:", "close"] ->
 		    parse_header(Socket, Timeout, SslOption,
 				 Header#header{connection = close});
+		["X-Forwarded-For:", XForwardedFor] ->
+		    parse_header(Socket, Timeout, SslOption,
+				 Header#header{xforwardedfor = XForwardedFor});
 		["Authorization:", Authorization] ->
 		    parse_header(Socket, Timeout, SslOption,
 				 Header#header{authorization = Authorization});
