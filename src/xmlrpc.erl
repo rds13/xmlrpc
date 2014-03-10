@@ -1,6 +1,6 @@
 %% Hacked by Romuald du Song
 %%
-%% Copyright (C) 2003 Joakim Grebenö <jocke@gleipnir.com>.
+%% Copyright (C) 2003 Joakim GrebenÃ¶ <jocke@gleipnir.com>.
 %% All rights reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
