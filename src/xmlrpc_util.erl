@@ -1,4 +1,4 @@
-%% Copyright (C) 2003 Joakim GrebenÃÂ¶ <jocke@gleipnir.com>.
+%% Copyright (C) 2003 Joakim Grebenö <jocke@gleipnir.com>.
 %% All rights reserved.
 %%
 %% Redistribution and use in source and binary forms, with or without
