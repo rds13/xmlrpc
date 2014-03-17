@@ -1,4 +1,4 @@
-{author,"Joakim Grebenö","jocke@gleipnir.com","030107"}.
+{author,"Joakim GrebenÃ¶","jocke@gleipnir.com","030107"}.
 {name,"xmlrpc"}.
 {vsn,{1, 14}}.
 {summary,"An XML-RPC client/server library"}.
