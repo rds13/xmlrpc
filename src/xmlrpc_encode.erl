@@ -102,6 +102,8 @@ encode({base64, Base64}) ->
 	yes -> ["<base64>", Base64, "</base64>"];
 	no -> {error, {bad_base64, Base64}}
     end;
+encode(Atom) when is_atom(Atom) ->.
+    ["<atom>",atom_to_list(Atom),"</atom>"];		
 encode(Value) ->
     case xmlrpc_util:is_string(Value) of
 	yes -> ["<string>", escape_string(Value), "</string>"];
