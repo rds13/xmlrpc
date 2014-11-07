@@ -99,7 +99,6 @@ parse_header(Socket, Timeout, Header) ->
 				 Header#header{content_type = "text/xml; charset=utf-8"});
 		{"Content-Type:", _ContentType} -> {status, 415};
 		{"User-Agent:", UserAgent} ->
-				io:format("UA : ~p~n", [UserAgent]),
 				put(user_agent, UserAgent),
 		    parse_header(Socket, Timeout,
 				 Header#header{user_agent = UserAgent});
@@ -233,16 +232,16 @@ send(Socket, StatusCode, ExtraHeader, Payload) ->
 	 Payload],
 	 RequestTime = now_us() - get(start),
 
-	 {ok, {Address, Port}} = inet:peername(Socket),
-	 log_request(
-	 	get(user_agent),
-	 	tuple_to_ip(Address),
-	 	Port,
-	 	get(method),	 	
-	 	integer_to_list(StatusCode),
-	 	RequestTime,
-	 	integer_to_list(lists:flatlength(Payload))),
-   gen_tcp:send(Socket, Response).
+	{ok, {Address, Port}} = inet:peername(Socket),
+	log_request(
+		get(user_agent),
+		tuple_to_ip(Address),
+		Port,
+		get(method),	 	
+		integer_to_list(StatusCode),
+		RequestTime,
+		integer_to_list(lists:flatlength(Payload))),
+  gen_tcp:send(Socket, Response).
 
 reason_phrase(200) -> "OK";
 reason_phrase(400) -> "Bad Request";
@@ -258,13 +257,18 @@ tuple_to_ip({A, B, C, D})->
 now_us() ->
 	{MegaSecs,Secs,MicroSecs} = erlang:now(),
 	(MegaSecs*1000000 + Secs)*1000000 + MicroSecs.
-
-log_request(UA, RemoteAddress, RemotePort, RequestMethod, Status, RequestTime, BytesSent)->
+maybe_log_request(undefined, UA, RemoteAddress, RemotePort, RequestMethod, Status, RequestTime, BytesSent)->
 	lager:info([{http_user_agent, UA}, 
 							{remote_addr,RemoteAddress},
 							{remote_port,RemotePort},
 							{request_method, RequestMethod},
 							{status, Status}, 
 							{request_time, RequestTime},
-							{body_bytes_sent, BytesSent}],"").
+							{body_bytes_sent, BytesSent}],"");
 
+maybe_log_request(true, _UA, _RemoteAddress, _RemotePort, _RequestMethod, _Status, _RequestTime, _BytesSent)->
+	ok.
+
+log_request(UA, RemoteAddress, RemotePort, RequestMethod, Status, RequestTime, BytesSent)->
+	maybe_log_request(get(logged),UA, RemoteAddress, RemotePort, RequestMethod, Status, RequestTime, BytesSent),
+	put(logged, true).
