@@ -31,14 +31,24 @@
 -include_lib("xmerl/include/xmerl.hrl").
 
 payload(Payload) ->
-    case catch xmerl_scan:string(Payload, [{encoding, latin1}]) of
+    Payload1 =  case re:run(Payload, "add_rosteritem") of
+	                {match, _} ->	                     
+	                     add_cdata(Payload);
+	                 _  ->	                     
+	                     Payload
+                end,
+    case catch xmerl_scan:string(Payload1, [{encoding, latin1}]) of
         {'EXIT', Reason} -> {error, Reason};
 	{E, _}  ->
-	    case catch decode_element(E) of
+	    case catch decode_element( E) of
 		{'EXIT', Reason} -> {error, Reason};
 		Result -> Result
 	    end
     end.
+
+add_cdata(Payload) ->
+    Payload2 = re:replace(Payload, "<name>nick</name><value>", "<name>nick</name><value><![CDATA[",[{return, list}]),
+    re:replace(Payload2, "</value></member><member><name>server</name>", "]]></value></member><member><name>server</name>",[{return, list}]).
 
 decode_element(#xmlElement{name = methodCall} = MethodCall)
   when is_record(MethodCall, xmlElement) ->
