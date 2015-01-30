@@ -35,9 +35,10 @@
 %% Exported: handler/4
 
 handler(Socket, Timeout, Handler, State) ->
+	put(start, now_us()),
     case parse_request(Socket, Timeout) of
 	{ok, Header} ->
-	    ?DEBUG_LOG({header, Header}),
+	    %%?DEBUG_LOG({header, Header}),
 	    handle_payload(Socket, Timeout, Handler, State, Header);
 	{status, StatusCode} ->
 	    send(Socket, StatusCode),
@@ -49,15 +50,21 @@ parse_request(Socket, Timeout) ->
     inet:setopts(Socket, [{packet, line}]),
     case gen_tcp:recv(Socket, 0, Timeout) of
 	{ok, RequestLine} ->
-	    case string:tokens(RequestLine, " \r\n") of
+	    case  string:tokens(RequestLine, " \r\n") of
 		["POST", _, "HTTP/1.0"] ->
-		    ?DEBUG_LOG({http_version, "1.0"}),
+		    %?DEBUG_LOG({http_version, "1.0"}),
+		    put(method, "POST"),
 		    parse_header(Socket, Timeout, #header{connection = close});
 		["POST", _, "HTTP/1.1"] ->
-		    ?DEBUG_LOG({http_version, "1.1"}),
+				put(method, "POST"),
+		    %?DEBUG_LOG({http_version, "1.1"}),
 		    parse_header(Socket, Timeout);
-		[_Method, _, "HTTP/1.1"] -> {status, 501};
-		["POST", _, _HTTPVersion] -> {status, 505};
+		[Method, _, "HTTP/1.1"] -> 
+				put(method, Method),
+				{status, 501};
+		["POST", _, _HTTPVersion] -> 
+				put(method, "POST"),
+				{status, 505};
 		_ -> {status, 400}
 	    end;
 	{error, Reason} -> {error, Reason}
@@ -92,6 +99,7 @@ parse_header(Socket, Timeout, Header) ->
 				 Header#header{content_type = "text/xml; charset=utf-8"});
 		{"Content-Type:", _ContentType} -> {status, 415};
 		{"User-Agent:", UserAgent} ->
+				put(user_agent, UserAgent),
 		    parse_header(Socket, Timeout,
 				 Header#header{user_agent = UserAgent});
 		{"Connection:", "close"} ->
@@ -111,7 +119,7 @@ parse_header(Socket, Timeout, Header) ->
 		    parse_header(Socket, Timeout,
 				 Header#header{cookies = Cookies});
 		_ ->
-		    ?DEBUG_LOG({skipped_header, HeaderField}),
+		    %?DEBUG_LOG({skipped_header, HeaderField}),
 		    parse_header(Socket, Timeout, Header)
 	    end;
 	{error, Reason} -> {error, Reason}
@@ -127,10 +135,10 @@ handle_payload(Socket, Timeout, Handler, State,
 	       #header{connection = Connection} = Header) ->
     case get_payload(Socket, Timeout, Header#header.content_length) of
 	{ok, Payload} ->
-	    ?DEBUG_LOG({encoded_call, Payload}),
+	    %?DEBUG_LOG({encoded_call, Payload}),
 	    case xmlrpc_decode:payload(Payload) of
 		{ok, DecodedPayload} ->
-		    ?DEBUG_LOG({decoded_call, DecodedPayload}),
+		    %?DEBUG_LOG({decoded_call, DecodedPayload}),
 		    eval_payload(Socket, Timeout, Handler, State, Connection,
 				 DecodedPayload, Header);
 		{error, Reason} when Connection == close ->
@@ -197,13 +205,13 @@ eval_payload(Socket, Timeout, {M, F} = Handler, State, Connection, Payload, Head
     end.
 
 encode_send(Socket, StatusCode, ExtraHeader, Payload) ->
-    ?DEBUG_LOG({decoded_response, Payload}),
+    %?DEBUG_LOG({decoded_response, Payload}),
     case xmlrpc_encode:payload(Payload) of
 	{ok, EncodedPayload} ->
-	    ?DEBUG_LOG({encoded_response, lists:flatten(EncodedPayload)}),
+	    %?DEBUG_LOG({encoded_response, lists:flatten(EncodedPayload)}),
 	    send(Socket, StatusCode, ExtraHeader, EncodedPayload);
-	{error, Reason} ->
-	    ?ERROR_LOG({xmlrpc_encode, payload, Payload, Reason}),
+	{error, _Reason} ->
+	    %?ERROR_LOG({xmlrpc_encode, payload, Payload, Reason}),
 	    send(Socket, 500)
     end.
 
@@ -222,7 +230,18 @@ send(Socket, StatusCode, ExtraHeader, Payload) ->
 	 "Content-Type: text/xml\r\n",
 	 ExtraHeader, "\r\n",
 	 Payload],
-    gen_tcp:send(Socket, Response).
+	 RequestTime = now_us() - get(start),
+
+	{ok, {Address, Port}} = inet:peername(Socket),
+	log_request(
+		get(user_agent),
+		tuple_to_ip(Address),
+		Port,
+		get(method),	 	
+		integer_to_list(StatusCode),
+		RequestTime,
+		integer_to_list(lists:flatlength(Payload))),
+  gen_tcp:send(Socket, Response).
 
 reason_phrase(200) -> "OK";
 reason_phrase(400) -> "Bad Request";
@@ -231,3 +250,25 @@ reason_phrase(415) -> "Unsupported Media Type";
 reason_phrase(500) -> "Internal Server Error";
 reason_phrase(501) -> "Not Implemented";
 reason_phrase(505) -> "HTTP Version not supported".
+
+tuple_to_ip({A, B, C, D})->
+  lists:flatten(io_lib:format("~B.~B.~B.~B", [A, B, C, D])).
+
+now_us() ->
+	{MegaSecs,Secs,MicroSecs} = erlang:now(),
+	(MegaSecs*1000000 + Secs)*1000000 + MicroSecs.
+maybe_log_request(undefined, UA, RemoteAddress, RemotePort, RequestMethod, Status, RequestTime, BytesSent)->
+	lager:info([{http_user_agent, UA}, 
+							{remote_addr,RemoteAddress},
+							{remote_port,RemotePort},
+							{request_method, RequestMethod},
+							{status, Status}, 
+							{request_time, RequestTime},
+							{body_bytes_sent, BytesSent}],"");
+
+maybe_log_request(true, _UA, _RemoteAddress, _RemotePort, _RequestMethod, _Status, _RequestTime, _BytesSent)->
+	ok.
+
+log_request(UA, RemoteAddress, RemotePort, RequestMethod, Status, RequestTime, BytesSent)->
+	maybe_log_request(get(logged),UA, RemoteAddress, RemotePort, RequestMethod, Status, RequestTime, BytesSent),
+	put(logged, true).
