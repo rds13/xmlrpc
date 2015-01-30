@@ -40,7 +40,7 @@ payload(Payload) ->
     case catch xmerl_scan:string(Payload1, [{encoding, latin1}]) of
         {'EXIT', Reason} -> {error, Reason};
 	{E, _}  ->
-	    case catch decode_element() of
+	    case catch decode_element(E) of
 		{'EXIT', Reason} -> {error, Reason};
 		Result -> Result
 	    end
@@ -52,7 +52,7 @@ add_cdata(Payload) ->
     B = string:substr(Payload2, A+5),
     [D,_]=re:split(B,"<",[{return,list},{parts,2}]),
     re:replace(Payload, D, "<![CDATA[&]]>",[{return, list}]).
-    
+
 decode_element(#xmlElement{name = methodCall} = MethodCall)
   when is_record(MethodCall, xmlElement) ->
     {MethodName, Rest} =
