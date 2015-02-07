@@ -118,7 +118,7 @@ loop(#state{session_list = SessionList, listen_socket = ListenSocket,
 	    end;
 	{system, From, Request} ->
             sys:handle_system_msg(Request, From, Parent, ?MODULE,
-				  State#state.debug_info, State);	
+				  State#state.debug_info, State);
 	UnknownMessage ->
 	    ?ERROR_LOG({unknown_message, UnknownMessage}),
 	    loop(State)
@@ -126,7 +126,7 @@ loop(#state{session_list = SessionList, listen_socket = ListenSocket,
 
 cleanup(State) -> gen_tcp:close(State#state.listen_socket).
 
-%% Exported: start_seesion/3
+%% Exported: start_session/3
 
 start_session(Parent, {M, F, A}, ListenSocket) ->
     case gen_tcp:accept(ListenSocket) of
