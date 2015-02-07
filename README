@@ -6,7 +6,7 @@ published by http://www.xmlrpc.org/.
 Prior to using this library you need a recent installation of
 Erlang (Erlang/OTP R12).
 
-In order compile the library go to the src/ directory and run make to compile.
+In order to compile the library run make on top level.
 
 You are now ready to try the client and server examples in the
 examples/ directory.
@@ -19,5 +19,6 @@ http://github.com/rds13/xmlrpc/ .
 
 This library is a hack over 
 http://ejabberd.jabber.ru/files/contributions/xmlrpc-1.13-ipr2.tgz 
-to add support for custom HTTP headers and https transport.
+to add support for custom HTTP headers, https transport and
+case insensitive HTTP header support.
 Custom HTTP headers allow to send cookies between client and server.
