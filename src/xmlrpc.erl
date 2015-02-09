@@ -31,6 +31,10 @@
 -export([call/3, call/4, call/5, call/6, call/7, call/8, call2/7]).
 -export([start_link/1, start_link/5, start_link/6, stop/1]).
 
+-ifdef(TEST).
+-export([parse_response/3, open_socket/3]).
+-endif.
+
 -include("log.hrl").
 
 -include("xmlrpc.hrl").
