@@ -15,7 +15,7 @@ SOURCES=$(wildcard $(SOURCE_DIR)/*.erl)
 TARGETS=$(patsubst $(SOURCE_DIR)/%.erl, $(EBIN_DIR)/%.beam,$(SOURCES))
 
 #other args: +native +"{hipe,[o3,verbose]}" -Ddebug=true +debug_info +no_strict_record_tests
-ERLC_OPTS=-I $(XMLRPC_INCLUDE_DIR) -I $(INCLUDE_DIR) -o $(EBIN_DIR) $(DEBUG_FLAGS) -Wall +debug_info
+ERLC_OPTS=-I $(XMLRPC_INCLUDE_DIR) -I $(INCLUDE_DIR) -o $(EBIN_DIR) $(DEBUG_FLAGS) -DTEST -Wall +debug_info
 ERL_CALL=erl -pa $(EBIN_DIR)
 
 all: $(EBIN_DIR) $(TARGETS)
@@ -27,7 +27,9 @@ $(EBIN_DIR)/%.beam: $(SOURCE_DIR)/%.erl $(INCLUDES)
 	erlc $(ERLC_OPTS) $<
 
 run-tests: all
-	echo "xmlrpc_tests:test()." | $(ERL_CALL)
+	$(ERL_CALL) \
+	  -eval 'eunit:test("ebin", [verbose])' \
+	  -s init stop
 
 dialyze: $(TARGETS)
 	dialyzer -c $?
