@@ -88,7 +88,13 @@ handle_lowcase_header() ->
     Options = [{ssl, false}],
     ParseResult = case xmlrpc:open_socket(localhost, 4567, Options) of
         {ok, Socket} ->
-            Payload = "<?xml version=\"1.0\"?><methodCall><methodName>echo</methodName><params><param><value><string>43</string></value></param></params></methodCall>",
+            Payload = ["<?xml version=\"1.0\"?>",
+                       "<methodCall>",
+                       "<methodName>echo</methodName>",
+                       "<params>",
+                       "<param><value><string>43</string></value></param>",
+                       "</params>",
+                       "</methodCall>"],
             Request = [ "POST / HTTP/1.1\r\n",
                        "user-agent: Dart/1.8 (dart:io)\r\n",
                        "content-type: text/xml; charset=utf-8\r\n",
