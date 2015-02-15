@@ -76,37 +76,36 @@ parse_header(Socket, Timeout, Header) ->
 	{ok, "\r\n"} -> {ok, Header};
 	{ok, HeaderField} ->
 	    case split_header_field(HeaderField) of
-		{[$C,$o,$n,$t,$e,$n,$t,$-,_,$e,$n,$g,$t,$h,$:],
-		 ContentLength} ->
+		{"content-length:", ContentLength} ->
 		    case catch list_to_integer(ContentLength) of
+                        {'EXIT', {badarg,_}} -> {status, 400};
 			N ->
 			    parse_header(Socket, Timeout,
-					 Header#header{content_length = N});
-			_ -> {status, 400}
+					 Header#header{content_length = N})
 			  end;
-		{"Content-Type:", "text/xml"} ->
+		{"content-type:", "text/xml"} ->
 		    parse_header(Socket, Timeout,
 				 Header#header{content_type = "text/xml"});
-		{"Content-Type:", "text/xml; charset=utf-8"} ->
+		{"content-type:", "text/xml; charset=utf-8"} ->
 		    parse_header(Socket, Timeout,
 				 Header#header{content_type = "text/xml; charset=utf-8"});
-		{"Content-Type:", _ContentType} -> {status, 415};
-		{"User-Agent:", UserAgent} ->
+		{"content-type:", _ContentType} -> {status, 415};
+		{"user-agent:", UserAgent} ->
 		    parse_header(Socket, Timeout,
 				 Header#header{user_agent = UserAgent});
-		{"Connection:", "close"} ->
+		{"connection:", "close"} ->
 		    parse_header(Socket, Timeout,
 				 Header#header{connection = close});
-		{"Connection:", [_,$e,$e,$p,$-,_,$l,$i,$v,$e]} ->
+		{"connection:", [_,$e,$e,$p,$-,_,$l,$i,$v,$e]} ->
 		    parse_header(Socket, Timeout,
 				 Header#header{connection = undefined});
-		{"Authorization:", Authorization} ->
+		{"authorization:", Authorization} ->
 		    parse_header(Socket, Timeout,
 				 Header#header{authorization = Authorization});
-		{"X-Forwarded-For:", XForwardedFor} ->
+		{"x-forwarded-for:", XForwardedFor} ->
 		    parse_header(Socket, Timeout,
 				 Header#header{xforwardedfor = XForwardedFor});
-		{"Cookie:", Cookie} ->
+		{"cookie:", Cookie} ->
 			Cookies = [ Cookie | Header#header.cookies ],
 		    parse_header(Socket, Timeout,
 				 Header#header{cookies = Cookies});
@@ -120,7 +119,7 @@ parse_header(Socket, Timeout, Header) ->
 split_header_field(HeaderField) -> split_header_field(HeaderField, []).
 
 split_header_field([], Name) -> {Name, ""};
-split_header_field([$ |Rest], Name) -> {lists:reverse(Name), Rest -- "\r\n"};
+split_header_field([$ |Rest], Name) -> {string:to_lower(lists:reverse(Name)), Rest -- "\r\n"};
 split_header_field([C|Rest], Name) -> split_header_field(Rest, [C|Name]).
 
 handle_payload(Socket, Timeout, Handler, State,

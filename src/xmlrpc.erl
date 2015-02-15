@@ -31,6 +31,10 @@
 -export([call/3, call/4, call/5, call/6, call/7, call/8, call2/7]).
 -export([start_link/1, start_link/5, start_link/6, stop/1]).
 
+-ifdef(TEST).
+-export([parse_response/3, open_socket/3]).
+-endif.
+
 -include("log.hrl").
 
 -include("xmlrpc.hrl").
@@ -40,16 +44,16 @@
 call(Socket, URI, Payload) ->
 	call2(Socket, URI, Payload, false, 60000, "", [{ssl, false}, {header, false}]).
 
-call(Host, Port, URI, Payload, Options) when is_number(Port) -> 
+call(Host, Port, URI, Payload, Options) when is_number(Port) ->
 	call(Host, Port, URI, Payload, false, 60000, "", Options);
 
 call(Socket, URI, Payload, KeepAlive, Timeout) ->
 	call2(Socket, URI, Payload, KeepAlive, Timeout, "", [{ssl, false}, {header, false}]).
 
-call(Host, Port, URI, Payload) when is_number(Port) -> 
+call(Host, Port, URI, Payload) when is_number(Port) ->
 	call(Host, Port, URI, Payload, false, 60000, "", [{ssl, false}, {header, false}]);
-	
-call(Socket, URI, Payload, Options) -> 
+
+call(Socket, URI, Payload, Options) ->
 	call2(Socket, URI, Payload, false, 60000, "", Options).
 
 call(Host, Port, URI, Payload, KeepAlive, Timeout) when is_number(Port) ->
@@ -75,14 +79,14 @@ call(Host, Port, URI, Payload, KeepAlive, Timeout, ExtraHeaders, Options) when i
 open_socket(Host, Port, Options) ->
 	case fetch_comm_module(Options) of
 		ssl ->
-			%% Start ssl application 
-			application:start(ssl), 
-			%% Always seed 
+			%% Start ssl application
+			application:start(ssl),
+			%% Always seed
 			ssl:seed("wheredoyouthinkitcanbefound"),
 			%% new ssl implementation does not seem to work as of R13B01
 			%%{ok, SslSocket} = ssl:connect(Host, Port, [{ssl_imp, new}, {active, false}, {verify, verify_none}]),
 			ssl:connect(Host, Port, [{verify, 0}, {active, false}]);
-		_ -> 
+		_ ->
 			gen_tcp:connect(Host, Port, [{active, false}])
 	end.
 
@@ -114,21 +118,20 @@ call2(Socket, URI, Payload, KeepAlive, Timeout, ExtraHeader, Options) ->
 	end.
 
 send(Socket, URI, false, Payload, ExtraHeader, SslOption) ->
-	send(Socket, URI, lists:flatten(["Connection: close\r\n" | ExtraHeader]), Payload, SslOption);
-send(Socket, URI, true, Payload, ExtraHeader, SslOption) -> 
-	send(Socket, URI, ExtraHeader, Payload, SslOption).
+    send(Socket, URI, lists:flatten(["Connection: close\r\n" | ExtraHeader]), Payload, SslOption);
+send(Socket, URI, true, Payload, ExtraHeader, SslOption) ->
+    send(Socket, URI, ExtraHeader, Payload, SslOption).
 
 send(Socket, URI, Header, Payload, SslOption) ->
     Request =
-	["POST ", URI, " HTTP/1.1\r\n",
-	 "Content-Length: ", integer_to_list(lists:flatlength(Payload)),
-	 "\r\n",
-	 "User-Agent: Erlang XML-RPC Client 1.13\r\n",
-	 "Content-Type: text/xml\r\n",
-	 Header, "\r\n",
-	 Payload],
-	M = fetch_comm_module(SslOption),
-	apply(M, send, [Socket, Request]).
+              ["POST ", URI, " HTTP/1.1\r\n",
+               "Content-Length: ", integer_to_list(lists:flatlength(Payload)), "\r\n",
+               "User-Agent: Erlang XML-RPC Client 1.13\r\n",
+               "Content-Type: text/xml\r\n",
+               Header, "\r\n",
+               Payload],
+    M = fetch_comm_module(SslOption),
+    apply(M, send, [Socket, Request]).
 
 parse_response(Socket, Timeout, SslOption) ->
 	M = fetch_comm_module(SslOption),
@@ -161,7 +164,7 @@ fetch_sets_module(Options) ->
 comm_close(Options, Socket) ->
 	M = fetch_comm_module(Options),
 	apply(M, close, [ Socket ]).
-	
+
 parse_header(Socket, Timeout, SslOption) -> parse_header(Socket, Timeout, SslOption, #header{}).
 
 parse_header(Socket, Timeout, SslOption, Header) ->
@@ -171,26 +174,26 @@ parse_header(Socket, Timeout, SslOption, Header) ->
 	    {error, missing_content_length};
 	{ok, "\r\n"} -> {ok, Header};
 	{ok, HeaderField} ->
-	    case string:tokens(HeaderField, " \r\n") of
-		["Content-Length:", ContentLength] ->
+	    case string:tokens(string:to_lower(HeaderField), " \r\n") of
+		["content-length:", ContentLength] ->
 		    case catch list_to_integer(ContentLength) of
-			badarg -> 
+			badarg ->
 				{error, {invalid_content_length, ContentLength}};
 			Value ->
 			    parse_header(Socket, Timeout, SslOption,
 					 Header#header{content_length =
 						       Value})
 		    end;
-		["Connection:", "close"] ->
+		["connection:", "close"] ->
 		    parse_header(Socket, Timeout, SslOption,
 				 Header#header{connection = close});
-		["X-Forwarded-For:", XForwardedFor] ->
+		["x-forwarded-for:", XForwardedFor] ->
 		    parse_header(Socket, Timeout, SslOption,
 				 Header#header{xforwardedfor = XForwardedFor});
-		["Authorization:", Authorization] ->
+		["authorization:", Authorization] ->
 		    parse_header(Socket, Timeout, SslOption,
 				 Header#header{authorization = Authorization});
-		["Cookie:", Cookie] ->
+		["cookie:", Cookie] ->
 			Cookies = [ Cookie | Header#header.cookies ],
 		    parse_header(Socket, Timeout, SslOption,
 				 Header#header{cookies = Cookies});
@@ -253,9 +256,9 @@ handle_payload(Socket, KeepAlive, Timeout, Options, Header) ->
     end.
 
 get_payload(Socket, Timeout, SslOption, ContentLength) ->
-	M = fetch_comm_module(SslOption),
+    M = fetch_comm_module(SslOption),
     apply(fetch_sets_module(SslOption), setopts, [Socket, [{packet, raw}]]),
-	apply(M, recv, [Socket, ContentLength, Timeout]).
+    apply(M, recv, [Socket, ContentLength, Timeout]).
 
 %% Exported: start_link/{1,5,6}
 
@@ -266,7 +269,7 @@ start_link(Port, MaxSessions, Timeout, Handler, State) ->
 
 start_link(IP, Port, MaxSessions, Timeout, Handler, State) ->
     OptionList = [{active, false}, {reuseaddr, true}] ++ ip(IP),
-    SessionHandler = {xmlrpc_http, handler, [Timeout, Handler, State]}, 
+    SessionHandler = {xmlrpc_http, handler, [Timeout, Handler, State]},
     tcp_serv:start_link([Port, MaxSessions, OptionList, SessionHandler]).
 
 ip(all) -> [];

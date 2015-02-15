@@ -1,8 +1,8 @@
 {application, xmlrpc,
  [
-  {description, ""},
-  {vsn, git},
+  {description, "XML-RPC server"},
+  {vsn, "1.15"},
   {registered, []},
-  {applications, []},
+  {applications, [kernel, stdlib]},
   {env, []}
  ]}.
