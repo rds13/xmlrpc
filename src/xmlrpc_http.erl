@@ -83,12 +83,9 @@ parse_header(Socket, Timeout, Header) ->
 			    parse_header(Socket, Timeout,
 					 Header#header{content_length = N})
 			  end;
-		{"content-type:", "text/xml"} ->
+		{"content-type:", Type="text/xml"++_} ->
 		    parse_header(Socket, Timeout,
-				 Header#header{content_type = "text/xml"});
-		{"content-type:", "text/xml; charset=utf-8"} ->
-		    parse_header(Socket, Timeout,
-				 Header#header{content_type = "text/xml; charset=utf-8"});
+				 Header#header{content_type = Type});
 		{"content-type:", _ContentType} -> {status, 415};
 		{"user-agent:", UserAgent} ->
 		    parse_header(Socket, Timeout,

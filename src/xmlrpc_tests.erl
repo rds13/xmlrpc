@@ -48,9 +48,11 @@ timeout_call_test_() ->
     [{"A timeout call time can be made",
      ?setup(fun handle_timeout_call/0)}].
 
-header_insensitive_test_() ->
+header_variants_test_() ->
     [{"A HTTP header can be specified in lowcase",
-     ?setup(fun handle_lowcase_header/0)}].
+     ?setup(fun handle_lowcase_header/0)},
+    {"The content type charset is ignored",
+     ?setup(fun handle_content_type_iso8859/0)}].
 
 is_alive(Pid) ->
     [?_assert(erlang:is_process_alive(Pid))].
@@ -85,32 +87,53 @@ handle_timeout_call() ->
 -ifdef(TEST).
 
 handle_lowcase_header() ->
+    Payload = ["<?xml version=\"1.0\"?>",
+               "<methodCall>",
+               "<methodName>echo</methodName>",
+               "<params>",
+               "<param><value><string>43</string></value></param>",
+               "</params>",
+               "</methodCall>"],
+    Request = [ "POST / HTTP/1.1\r\n",
+               "user-agent: Dart/1.8 (dart:io)\r\n",
+               "content-type: text/xml; charset=utf-8\r\n",
+               "content-length: ",integer_to_list(lists:flatlength(Payload)),"\r\n",
+               "X-Forwarded-For: 192.46.45.211\r\n",
+               "Connection: close\r\n",
+               "\r\n",
+               Payload],
+    ParseResult = send_request(Request),
+    ?assertMatch({ok, _Header}, ParseResult).
+
+handle_content_type_iso8859() ->
+    Payload = ["<?xml version=\"1.0\"?>",
+               "<methodCall>",
+               "<methodName>echo</methodName>",
+               "<params>",
+               "<param><value><string>écho</string></value></param>",
+               "</params>",
+               "</methodCall>"],
+    Request = [ "POST / HTTP/1.1\r\n",
+               "user-agent: Dart/1.8 (dart:io)\r\n",
+               "content-type: text/xml; charset=iso-8859-1\r\n",
+               "content-length: ",integer_to_list(lists:flatlength(Payload)),"\r\n",
+               "Connection: close\r\n",
+               "\r\n",
+               Payload],
+    ParseResult = send_request(Request),
+    ?assertMatch({ok, _Header}, ParseResult).
+
+send_request(Request) ->
     Options = [{ssl, false}],
-    ParseResult = case xmlrpc:open_socket(localhost, 4567, Options) of
+    case xmlrpc:open_socket(localhost, 4567, Options) of
         {ok, Socket} ->
-            Payload = ["<?xml version=\"1.0\"?>",
-                       "<methodCall>",
-                       "<methodName>echo</methodName>",
-                       "<params>",
-                       "<param><value><string>43</string></value></param>",
-                       "</params>",
-                       "</methodCall>"],
-            Request = [ "POST / HTTP/1.1\r\n",
-                       "user-agent: Dart/1.8 (dart:io)\r\n",
-                       "content-type: text/xml; charset=utf-8\r\n",
-                       "content-length: ",integer_to_list(lists:flatlength(Payload)),"\r\n",
-                       "X-Forwarded-For: 192.46.45.211\r\n",
-                       "Connection: close\r\n",
-                       "\r\n",
-                       Payload],
             gen_tcp:send(Socket, Request),
             case xmlrpc:parse_response(Socket, 1000, Options) of
                 {ok, Header} -> { ok, Header };
                 {error, Reason } -> { error, Reason }
             end;
         {error, Reason} -> {error, Reason}
-    end,
-    ?assertMatch({ok, _Header}, ParseResult).
+    end.
 
 -endif.
 
