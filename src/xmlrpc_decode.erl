@@ -31,7 +31,7 @@
 -include_lib("xmerl/include/xmerl.hrl").
 
 payload(Payload) ->
-    case catch xmerl_scan:string(Payload, [{encoding, latin1}]) of
+    case catch xmerl_scan:string(fix_emoji(Payload), [{encoding, latin1}]) of
         {'EXIT', Reason} -> {error, Reason};
 	{E, _}  ->
 	    case catch decode_element(E) of
@@ -222,3 +222,16 @@ make_double(Double) ->
 %	no -> throw({error, {not_base64, Base64}});
 %	yes -> Base64
 %    end.
+
+fix_emoji(Payload) ->
+	case re:run(Payload, "add_rosteritem") of
+		{match, _} ->
+			lager:notice("add_rosteritem payload ~p", [Payload]),
+			re:replace(Payload,
+				"<member><name>nick</name><value>(.*?)</value></member>",
+				"<member><name>nick</name><value><![CDATA[\\1]]></value></member>",
+			[{return,list}]);
+		_ ->
+			Payload
+	end.
+
