@@ -228,8 +228,8 @@ fix_emoji(Payload) ->
 		{match, _} ->
 			lager:notice("add_rosteritem payload ~p", [Payload]),
 			re:replace(Payload,
-				"<member><name>nick</name><value>(.*?)</value></member>",
-				"<member><name>nick</name><value><![CDATA[\\1]]></value></member>",
+				"<member><name>nick</name><value><string>(.*?)</string></value></member>",
+				"<member><name>nick</name><value><string><![CDATA[\\1]]></string></value></member>",
 			[{return,list}]);
 		_ ->
 			Payload
