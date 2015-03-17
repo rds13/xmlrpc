@@ -223,16 +223,3 @@ make_double(Double) ->
 %	no -> throw({error, {not_base64, Base64}});
 %	yes -> Base64
 %    end.
-
-fix_emoji(Payload) ->
-	case re:run(Payload, "add_rosteritem") of
-		{match, _} ->
-			lager:notice("add_rosteritem payload ~p", [Payload]),
-			re:replace(Payload,
-				"<member><name>nick</name><value><string>(.*?)</string></value></member>",
-				"<member><name>nick</name><value><string><![CDATA[\\1]]></string></value></member>",
-			[{return,list}]);
-		_ ->
-			Payload
-	end.
-
