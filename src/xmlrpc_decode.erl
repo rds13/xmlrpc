@@ -31,7 +31,7 @@
 -include_lib("xmerl/include/xmerl.hrl").
 
 payload(Payload) ->
-    case catch xmerl_scan:string(fix_emoji(Payload), [{encoding, latin1}]) of
+    case catch xmerl_scan:string(Payload, [{encoding, "utf-8"}]) of
         {'EXIT', Reason} -> {error, Reason};
 	{E, _}  ->
 	    case catch decode_element(E) of
