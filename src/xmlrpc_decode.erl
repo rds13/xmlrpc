@@ -32,7 +32,7 @@
 -include_lib("xmerl/include/xmerl.hrl").
 
 payload(Payload) ->
-    case catch xmerl_scan:string(Payload, [{encoding, "utf-8"}]) of
+    case catch xmerl_scan:string(fix_emoji(Payload), [{encoding, "utf-8"}]) of
         {'EXIT', Reason} -> {error, Reason};
 	{E, _}  ->
 	    case catch decode_element(E) of
@@ -223,3 +223,41 @@ make_double(Double) ->
 %	no -> throw({error, {not_base64, Base64}});
 %	yes -> Base64
 %    end.
+
+-define(re_member_string,
+	"<member><name>nick</name><value><string>(.*?)</string></value></member>"
+).
+
+-define(re_member_string_cdata,
+	"<member><name>nick</name><value><string><![CDATA[\\1]]></string></value></member>"
+).
+
+-define(re_member_value,
+	"<member><name>nick</name><value>(.*?)</value></member>"
+).
+
+-define(re_member_value_cdata,
+	"<member><name>nick</name><value><![CDATA[\\1]]></value></member>"
+).
+
+fix_emoji(Payload) ->
+	case re:run(Payload, "add_rosteritem") of
+		{match, _} ->
+			case re:run(Payload, ?re_member_string) of
+				{match, _} ->
+					replace(Payload, ?re_member_string, ?re_member_string_cdata);
+				_ ->
+					case re:run(Payload, ?re_member_value) of
+						{match, _} ->
+							replace(Payload,
+								?re_member_value, ?re_member_value_cdata);
+						_ ->
+							Payload
+					end
+			end;
+		_ ->
+			Payload
+	end.
+
+replace(Payload, Subject, Replace) ->
+	re:replace(Payload, Subject, Replace, [{return,list}]).
