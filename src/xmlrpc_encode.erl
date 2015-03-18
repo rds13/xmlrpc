@@ -1,3 +1,4 @@
+%% -*- coding: utf-8 -*-
 %% Copyright (C) 2003 Joakim Grebenö <jocke@gleipnir.com>.
 %% All rights reserved.
 %%
@@ -35,7 +36,7 @@ payload({call, Name, Params}) when is_atom(Name), is_list(Params) ->
 	{error, Reason} -> {error, Reason};
 	EncodedParams ->
 	    EncodedPayload =
-		["<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><methodCall><methodName>",
+		["<?xml version=\"1.0\" encoding=\"UTF-8\"?><methodCall><methodName>",
 		 atom_to_list(Name), "</methodName>", EncodedParams,
 		 "</methodCall>"],
 	    {ok, EncodedPayload}
@@ -44,7 +45,7 @@ payload({response, {fault, Code, String}}) when is_integer(Code) ->
     case xmlrpc_util:is_string(String) of
 	yes ->
 	    EncodedPayload =
-		["<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><methodResponse><fault>"
+		["<?xml version=\"1.0\" encoding=\"UTF-8\"?><methodResponse><fault>"
 		 "<value><struct><member><name>faultCode</name><value><int>",
 		 integer_to_list(Code), "</int></value></member><member><name>"
 		 "faultString</name><value><string>", escape_string(String),
@@ -59,7 +60,7 @@ payload({response, [Param]} = Payload) ->
     case encode_params([Param]) of
 	{error, Reason} -> {error, Reason};
 	EncodedParam ->
-	    {ok, ["<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><methodResponse>", EncodedParam,
+	    {ok, ["<?xml version=\"1.0\" encoding=\"UTF-8\"?><methodResponse>", EncodedParam,
 		  "</methodResponse>"]}
     end;
 payload(Payload) -> {error, {bad_payload, Payload}}.
