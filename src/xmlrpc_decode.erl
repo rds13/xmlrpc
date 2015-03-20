@@ -257,13 +257,17 @@ make_double(Double) ->
 ).
 
 
+-define(MethodName(Name), "<methodName>" ++ Name ++ "</methodName>").
+
 fix_emoji(Payload) ->
-	Subjects_Nick = ["add_rosteritem"],
+	Subjects_Nick = [?MethodName("add_rosteritem")],
 	Re_Nick = [
 		{?re_nick_string, ?re_nick_string_cdata},
 		{?re_nick_value, ?re_nick_value_cdata}
 	],
-	Subjects_Msg = ["send_notification", "send_file", "send_image", "send_audio"],
+	Subjects_Msg = [?MethodName(Name) ||
+		Name <- ["send_notification", "send_file", "send_image", "send_audio"]
+	],
 	Re_Msg = [
 		{?re_msg_string, ?re_msg_string_cdata},
 		{?re_msg_value, ?re_msg_value_cdata}
@@ -284,10 +288,14 @@ fix_emoji2(Payload, [Subject|Subjects], Regexes) ->
 	end;
 fix_emoji2(_, [], _) -> no_match. 
 
-fix_emoji3(Payload, Subject, [Replace|Replaces]) ->
+fix_emoji3(Payload, Subject, [{Pattern, Replace}|Replaces]) ->
 	case re:run(Payload, Subject) of
-		{match, _} -> {match, replace(Payload, Subject, Replace)};
-		_ -> fix_emoji3(Payload, Subject, Replaces)
+		{match, _} ->
+			case re:run(Payload, Pattern) of
+				{match, _} -> {match, replace(Payload, Pattern, Replace)};
+				_ -> fix_emoji3(Payload, Subject, Replaces)
+			end;
+		_ -> no_match
 	end;
 fix_emoji3(_, _, []) -> no_match.
 
