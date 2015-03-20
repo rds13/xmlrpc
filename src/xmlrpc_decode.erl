@@ -224,33 +224,33 @@ make_double(Double) ->
 %	yes -> Base64
 %    end.
 
--define(re_member_string,
+-define(re_nick_string,
 	"<member><name>nick</name><value><string>(.*?)</string></value></member>"
 ).
 
--define(re_member_string_cdata,
+-define(re_nick_string_cdata,
 	"<member><name>nick</name><value><string><![CDATA[\\1]]></string></value></member>"
 ).
 
--define(re_member_value,
+-define(re_nick_value,
 	"<member><name>nick</name><value>(.*?)</value></member>"
 ).
 
--define(re_member_value_cdata,
+-define(re_nick_value_cdata,
 	"<member><name>nick</name><value><![CDATA[\\1]]></value></member>"
 ).
 
 fix_emoji(Payload) ->
 	case re:run(Payload, "add_rosteritem") of
 		{match, _} ->
-			case re:run(Payload, ?re_member_string) of
+			case re:run(Payload, ?re_nick_string) of
 				{match, _} ->
-					replace(Payload, ?re_member_string, ?re_member_string_cdata);
+					replace(Payload, ?re_nick_string, ?re_nick_string_cdata);
 				_ ->
-					case re:run(Payload, ?re_member_value) of
+					case re:run(Payload, ?re_nick_value) of
 						{match, _} ->
 							replace(Payload,
-								?re_member_value, ?re_member_value_cdata);
+								?re_nick_value, ?re_nick_value_cdata);
 						_ ->
 							Payload
 					end
