@@ -240,24 +240,57 @@ make_double(Double) ->
 	"<member><name>nick</name><value><![CDATA[\\1]]></value></member>"
 ).
 
+-define(re_msg_string,
+	"<member><name>message</name><value><string>(.*?)</string></value></member>"
+).
+
+-define(re_msg_string_cdata,
+	"<member><name>message</name><value><string><![CDATA[\\1]]></string></value></member>"
+).
+
+-define(re_msg_value,
+	"<member><name>message</name><value>(.*?)</value></member>"
+).
+
+-define(re_msg_value_cdata,
+	"<member><name>message</name><value><![CDATA[\\1]]></value></member>"
+).
+
+
 fix_emoji(Payload) ->
-	case re:run(Payload, "add_rosteritem") of
-		{match, _} ->
-			case re:run(Payload, ?re_nick_string) of
-				{match, _} ->
-					replace(Payload, ?re_nick_string, ?re_nick_string_cdata);
-				_ ->
-					case re:run(Payload, ?re_nick_value) of
-						{match, _} ->
-							replace(Payload,
-								?re_nick_value, ?re_nick_value_cdata);
-						_ ->
-							Payload
-					end
-			end;
-		_ ->
-			Payload
-	end.
+	Subjects_Nick = ["add_rosteritem"],
+	Re_Nick = [
+		{?re_nick_string, ?re_nick_string_cdata},
+		{?re_nick_value, ?re_nick_value_cdata}
+	],
+	Subjects_Msg = ["send_notification", "send_file", "send_image", "send_audio"],
+	Re_Msg = [
+		{?re_msg_string, ?re_msg_string_cdata},
+		{?re_msg_value, ?re_msg_value_cdata}
+	],
+	fix_emoji(Payload, [{Subjects_Nick, Re_Nick}, {Subjects_Msg, Re_Msg}]).
+
+fix_emoji(Payload, [{Subjects, Regexes}|Patterns]) ->
+	case fix_emoji2(Payload, Subjects, Regexes) of
+		{match, NewPayload} -> NewPayload;
+		_ -> fix_emoji(Payload, Patterns)
+	end;
+fix_emoji(Payload, []) -> Payload.
+
+fix_emoji2(Payload, [Subject|Subjects], Regexes) ->
+	case fix_emoji3(Payload, Subject, Regexes) of
+		{match, NewPayload} -> {match, NewPayload};
+		_ -> fix_emoji2(Payload, Subjects, Regexes)
+	end;
+fix_emoji2(_, [], _) -> no_match. 
+
+fix_emoji3(Payload, Subject, [Replace|Replaces]) ->
+	case re:run(Payload, Subject) of
+		{match, _} -> {match, replace(Payload, Subject, Replace)};
+		_ -> fix_emoji3(Payload, Subject, Replaces)
+	end;
+fix_emoji3(_, _, []) -> no_match.
+
 
 replace(Payload, Subject, Replace) ->
 	re:replace(Payload, Subject, Replace, [{return,list}]).
