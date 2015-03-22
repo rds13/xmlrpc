@@ -208,7 +208,7 @@ handle_payload(Socket, KeepAlive, Timeout, Options, Header) ->
 	{ok, Payload} ->
 	    ?DEBUG_LOG({encoded_response, Payload}),
 	    case xmlrpc_decode:payload(Payload) of
-		{ok, {response, DecodedPayload}} when KeepAlive == false ->
+		{ok, DecodedPayload} when KeepAlive == false ->
 		    ?DEBUG_LOG({decoded_response, DecodedPayload}),
 		    comm_close(Options, Socket),
 			case has_header_option(Options) of
@@ -217,7 +217,7 @@ handle_payload(Socket, KeepAlive, Timeout, Options, Header) ->
 				_ ->
 		    		{ok, {response, DecodedPayload}}
 			end;
-		{ok, {response, DecodedPayload}} when KeepAlive == true,
+		{ok, DecodedPayload} when KeepAlive == true,
 					  Header#header.connection == close ->
 		    ?DEBUG_LOG({decoded_response, DecodedPayload}),
 		    comm_close(Options, Socket),
@@ -227,7 +227,7 @@ handle_payload(Socket, KeepAlive, Timeout, Options, Header) ->
 				_ ->
 				    {ok, Socket, {response, DecodedPayload}}
 			end;
-		{ok, {response, DecodedPayload}} ->
+		{ok, DecodedPayload} ->
 		    ?DEBUG_LOG({decoded_response, DecodedPayload}),
 			case has_header_option(Options) of
 				true ->
