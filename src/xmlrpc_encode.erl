@@ -54,9 +54,9 @@ payload({response, {fault, Code, String}}) when is_integer(Code) ->
 	    {ok, EncodedPayload};
 	no -> {error, {bad_string, String}}
     end;
-payload({response, []} = Payload) ->
+payload({response, []}) ->
     {ok, ["<?xml version=\"1.0\"?><methodResponse></methodResponse>"]};
-payload({response, [Param]} = Payload) ->
+payload({response, [Param]}) ->
     case encode_params([Param]) of
 	{error, Reason} -> {error, Reason};
 	EncodedParam ->
@@ -127,7 +127,7 @@ encode_members([{Name, Value}|Rest], Acc) when is_atom(Name) ->
 		      EncodedValue, "</value></member>"],
 	    encode_members(Rest, NewAcc)
     end;
-encode_members([{Name, Value}|Rest], Acc) -> {error, {invalid_name, Name}};
+encode_members([{Name, _Value}|_Rest], _Acc) -> {error, {invalid_name, Name}};
 encode_members(UnknownMember, Acc) ->
     {error, {unknown_member, UnknownMember}}.
 
@@ -141,6 +141,6 @@ encode_values([Value|Rest], Acc) ->
 	    NewAcc = Acc++["<value>", EncodedValue, "</value>"],
 	    encode_values(Rest, NewAcc)
     end;
-encode_values([{Name, Value}|Rest], Acc) -> {error, {invalid_name, Name}};
+%encode_values([{Name, Value}|Rest], Acc) -> {error, {invalid_name, Name}};
 encode_values(UnknownMember, Acc) ->
     {error, {unknown_member, UnknownMember}}.
