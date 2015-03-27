@@ -1,0 +1,2 @@
+{build, "cd eqc; erl -make"}.
+{test_path, "eqc"}.
