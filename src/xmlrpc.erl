@@ -31,9 +31,8 @@
 -export([call/3, call/4, call/5, call/6, call/7, call/8, call2/7]).
 -export([start_link/1, start_link/5, start_link/6, stop/1]).
 
--ifdef(TEST).
+%% Only for tests
 -export([parse_response/3, open_socket/3]).
--endif.
 
 -include("log.hrl").
 
@@ -306,7 +305,7 @@ handle_payload(Socket, KeepAlive, Timeout, Options, Header) ->
         {ok, Payload} ->
             ?DEBUG_LOG({encoded_response, Payload}),
             case xmlrpc_decode:payload(Payload) of
-                {ok, DecodedPayload} when KeepAlive == false ->
+                {ok, {response, DecodedPayload}} when KeepAlive == false ->
                     ?DEBUG_LOG({decoded_response, DecodedPayload}),
                     comm_close(Options, Socket),
                     case has_header_option(Options) of
@@ -315,7 +314,7 @@ handle_payload(Socket, KeepAlive, Timeout, Options, Header) ->
                         _ ->
                             {ok, {response, DecodedPayload}}
                     end;
-                {ok, DecodedPayload} when KeepAlive == true,
+                {ok, {response, DecodedPayload}} when KeepAlive == true,
                         Header#header.connection == close ->
                     ?DEBUG_LOG({decoded_response, DecodedPayload}),
                     comm_close(Options, Socket),
@@ -325,7 +324,7 @@ handle_payload(Socket, KeepAlive, Timeout, Options, Header) ->
                         _ ->
                             {ok, Socket, {response, DecodedPayload}}
                     end;
-                {ok, DecodedPayload} ->
+                {ok, {response, DecodedPayload}} ->
                     ?DEBUG_LOG({decoded_response, DecodedPayload}),
                     case has_header_option(Options) of
                         true ->
