@@ -49,7 +49,9 @@ various_call_test_() ->
     [{"A timeout call time can be made",
       ?setup(fun handle_timeout_call/1)},
      {"A call with a additional header can be made",
-      ?setup(fun handle_extraheader_call/1)}].
+      ?setup(fun handle_extraheader_call/1)},
+     {"A call with a wrong header format should result in error",
+      ?setup(fun handle_wrong_header_call/1)}].
 
 header_variants_test_() ->
     [{"A HTTP header can be specified in lowcase",
@@ -92,10 +94,22 @@ handle_timeout_call(_Pid) ->
     ?_assertEqual(ShouldBe, Response).
 
 handle_extraheader_call(_Pid) ->
-    ?_assertEqual({ok,{response,[{array, [421]}]}},
-                   xmlrpc:call(localhost, 4567, "/",
-                               {call, echo, [421]}, false, 10000,
-                               "Cookie: DUMMY=yes", [{ssl, false}])).
+    Options = [{ssl, false}],
+    Cookie = "Cookie: DUMMY=yes\r\n",
+    Timeout = 10000,
+    Response = xmlrpc:call(localhost, 4567, "/",
+                           {call, echo, [421]}, false, Timeout,
+                           Cookie, Options),
+    ?_assertEqual({ok,{response,[{array, [421]}]}}, Response).
+
+handle_wrong_header_call(_Pid) ->
+    Options = [{ssl, false}],
+    Cookie = "Cookie: DUMMY=This is not a valid header",
+    Timeout = 5000,
+    Response = xmlrpc:call(localhost, 4567, "/",
+                           {call, echo, [421]}, false, Timeout,
+                           Cookie, Options),
+    ?_assertEqual({error, timeout}, Response).
 
 handle_lowcase_header(_Pid) ->
     Payload = ["<?xml version=\"1.0\"?>",
