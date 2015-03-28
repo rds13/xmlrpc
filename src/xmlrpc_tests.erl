@@ -26,6 +26,7 @@
 
 -module(xmlrpc_tests).
 -export([handler/2,start/0]).
+-import(xmlrpc, [parse_response/3, open_socket/3]).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -37,36 +38,40 @@ start_stop_test_() ->
 
 variables_types_test_() ->
     [{"A simple int value is be a valid parameter type",
-     ?setup(fun handle_int_call/0)},
+     ?setup(fun handle_int_call/1)},
      {"A simple float value is a valid parameter type",
-      ?setup(fun handle_float_call/0)},
+      ?setup(fun handle_float_call/1)},
      {"A complex struct value is a valid parameter type",
-      ?setup(fun handle_struct_call/0)}
+      ?setup(fun handle_struct_call/1)}
      ].
 
-timeout_call_test_() ->
+various_call_test_() ->
     [{"A timeout call time can be made",
-     ?setup(fun handle_timeout_call/0)}].
+      ?setup(fun handle_timeout_call/1)},
+     {"A call with a additional header can be made",
+      ?setup(fun handle_extraheader_call/1)}].
 
 header_variants_test_() ->
     [{"A HTTP header can be specified in lowcase",
-     ?setup(fun handle_lowcase_header/0)},
+     ?setup(fun handle_lowcase_header/1)},
     {"The content type charset is ignored",
-     ?setup(fun handle_content_type_iso8859/0)}].
+     ?setup(fun handle_content_type_iso8859/1)}].
 
 is_alive(Pid) ->
     [?_assert(erlang:is_process_alive(Pid))].
 
-handle_int_call() ->
-    ?_assert(xmlrpc:call(localhost, 4567, "/",
-                        {call, echo, [42]}) =:= {ok,{response,[{array, [42]}]}}).
+handle_int_call(_Pid) ->
+    ShouldBe = {ok,{response,[{array, [42]}]}},
+    ?_assertEqual(ShouldBe, xmlrpc:call(localhost, 4567, "/",
+                                         {call, echo, [42]})).
 
-handle_float_call() ->
-    ?_assert(xmlrpc:call(localhost, 4567, "/",
-                        {call, echo, [42.0]}) =:= {ok,{response,[{array, [42.0000]}]}}).
+handle_float_call(_Pid) ->
+    ShouldBe = {ok,{response,[{array, [42.000]}]}},
+    [?_assertEqual(ShouldBe, xmlrpc:call(localhost, 4567, "/",
+                          {call, echo, [42.0]}))].
 
-handle_struct_call() ->
-    ?_assert(xmlrpc:call({127, 0, 0, 1}, 4567, "/",
+handle_struct_call(_Pid) ->
+    [?_assert(xmlrpc:call({127, 0, 0, 1}, 4567, "/",
                         {call, echo, [2.6,
                                       {array, [5, "foo"]},
                                       {struct,
@@ -78,15 +83,21 @@ handle_struct_call() ->
                                    {struct,
                                     [{baz,1},
                                      {bar,{base64,"aXMgdGhpcyBiaW5hcnkgPw=="}}]
-                                   }]}]}}).
+                                   }]}]}})].
 
-handle_timeout_call() ->
-    ?_assert(xmlrpc:call(localhost, 4567, "/",
-                        {call, echo, [42]}, true, 10000) =:= {ok,{response,[{array, [42]}]}}).
+handle_timeout_call(_Pid) ->
+    ShouldBe = {ok,{response,[{array, [42]}]}},
+    Response = xmlrpc:call(localhost, 4567, "/",
+                        {call, echo, [42]}, false, 10000),
+    ?_assertEqual(ShouldBe, Response).
 
--ifdef(TEST).
+handle_extraheader_call(_Pid) ->
+    ?_assertEqual({ok,{response,[{array, [421]}]}},
+                   xmlrpc:call(localhost, 4567, "/",
+                               {call, echo, [421]}, false, 10000,
+                               "Cookie: DUMMY=yes", [{ssl, false}])).
 
-handle_lowcase_header() ->
+handle_lowcase_header(_Pid) ->
     Payload = ["<?xml version=\"1.0\"?>",
                "<methodCall>",
                "<methodName>echo</methodName>",
@@ -103,9 +114,9 @@ handle_lowcase_header() ->
                "\r\n",
                Payload],
     ParseResult = send_request(Request),
-    ?assertMatch({ok, _Header}, ParseResult).
+    ?_assertMatch({ok, _Header}, ParseResult).
 
-handle_content_type_iso8859() ->
+handle_content_type_iso8859(_Pid) ->
     Payload = ["<?xml version=\"1.0\"?>",
                "<methodCall>",
                "<methodName>echo</methodName>",
@@ -121,21 +132,19 @@ handle_content_type_iso8859() ->
                "\r\n",
                Payload],
     ParseResult = send_request(Request),
-    ?assertMatch({ok, _Header}, ParseResult).
+    ?_assertMatch({ok, _Header}, ParseResult).
 
 send_request(Request) ->
     Options = [{ssl, false}],
-    case xmlrpc:open_socket(localhost, 4567, Options) of
+    case open_socket(localhost, 4567, Options) of
         {ok, Socket} ->
             gen_tcp:send(Socket, Request),
-            case xmlrpc:parse_response(Socket, 1000, Options) of
+            case parse_response(Socket, 1000, Options) of
                 {ok, Header} -> { ok, Header };
                 {error, Reason } -> { error, Reason }
             end;
         {error, Reason} -> {error, Reason}
     end.
-
--endif.
 
 %% setup functions
 
