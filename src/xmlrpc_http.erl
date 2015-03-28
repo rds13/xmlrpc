@@ -123,10 +123,10 @@ handle_payload(Socket, Timeout, Handler, State,
 	       #header{connection = Connection} = Header) ->
     case get_payload(Socket, Timeout, Header#header.content_length) of
 	{ok, Payload} ->
-	    ?DEBUG_LOG({encoded_call, Payload}),
+	    ?DEBUG_LOG({handle_payload, Payload}),
 	    case xmlrpc_decode:payload(Payload) of
 		{ok, DecodedPayload} ->
-		    ?DEBUG_LOG({decoded_call, DecodedPayload}),
+		    ?DEBUG_LOG({decoded_payload_to_handle, DecodedPayload}),
 		    eval_payload(Socket, Timeout, Handler, State, Connection,
 				 DecodedPayload, Header);
 		{error, Reason} when Connection == close ->
@@ -193,10 +193,10 @@ eval_payload(Socket, Timeout, {M, F} = Handler, State, Connection, Payload, Head
     end.
 
 encode_send(Socket, StatusCode, ExtraHeader, Payload) ->
-    ?DEBUG_LOG({decoded_response, Payload}),
+    ?DEBUG_LOG({encode_send, Payload}),
     case xmlrpc_encode:payload(Payload) of
 	{ok, EncodedPayload} ->
-	    ?DEBUG_LOG({encoded_response, lists:flatten(EncodedPayload)}),
+	    ?DEBUG_LOG({encode_send_encoded, lists:flatten(EncodedPayload)}),
 	    send(Socket, StatusCode, ExtraHeader, EncodedPayload);
 	{error, Reason} ->
 	    ?ERROR_LOG({xmlrpc_encode, payload, Payload, Reason}),
