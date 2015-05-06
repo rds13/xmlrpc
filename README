@@ -15,7 +15,7 @@ Do not forget to read doc/xmlrpc.3 (or xmlrpc.txt, xmlrpc.ps,
 xmlrpc.pdf) for a detailed API description.
 
 Get the latest version of this library at
-http://github.com/rds13/xmlrpc/ .
+https://github.com/rds13/xmlrpc/ .
 
 This library is a hack over 
 http://ejabberd.jabber.ru/files/contributions/xmlrpc-1.13-ipr2.tgz 
